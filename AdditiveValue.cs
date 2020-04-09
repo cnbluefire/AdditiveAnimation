@@ -164,6 +164,7 @@ namespace AdditiveAnimation
 
                 var propName = $"p{index}";
                 index++;
+                properties.StopAnimation("Value");
                 InsertValue(innerPropSet, propName, default);
                 InsertValue(innerPropSet, "e", to);
                 animations.Enqueue(an);
