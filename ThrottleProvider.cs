@@ -11,6 +11,7 @@ namespace AdditiveAnimation
     {
         public ThrottleProvider()
         {
+            timer.Interval = 100;
             timer.Elapsed += Timer_Elapsed;
         }
 

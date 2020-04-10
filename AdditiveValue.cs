@@ -102,6 +102,11 @@ namespace AdditiveAnimation
 
         public CompositionPropertySet Properties => properties;
 
+        /// <summary>
+        /// 使用外部节流器时应设置为false，请确保(动画的Duration / 节流器的Interval) < 19
+        /// </summary>
+        public bool IsThrottleEnabled { get; set; } = true;
+
         #endregion Properties
 
         #region Methods
@@ -109,6 +114,15 @@ namespace AdditiveAnimation
         public AdditiveValue<T> SetDuration(int millis)
         {
             Duration = TimeSpan.FromMilliseconds(millis);
+            return this;
+        }
+
+        /// <summary>
+        /// 使用外部节流器时应设置为false，请确保(动画的Duration / 节流器的Interval) < 19
+        /// </summary>
+        public AdditiveValue<T> SetThrottleEnabled(bool enabled)
+        {
+            IsThrottleEnabled = enabled;
             return this;
         }
 
@@ -145,14 +159,18 @@ namespace AdditiveAnimation
                 }
 
                 stop = false;
-                var now = Stopwatch.GetTimestamp();
-                if (now - lastAnimateTick > (unitTicks == -1 ? DefaultTicks : unitTicks))
+
+                if (IsThrottleEnabled)
                 {
-                    lastAnimateTick = now;
-                }
-                else
-                {
-                    return false;
+                    var now = Stopwatch.GetTimestamp();
+                    if (now - lastAnimateTick > (unitTicks == -1 ? DefaultTicks : unitTicks))
+                    {
+                        lastAnimateTick = now;
+                    }
+                    else
+                    {
+                        return false;
+                    }
                 }
 
                 var from = lastValue;
@@ -168,6 +186,8 @@ namespace AdditiveAnimation
                 InsertValue(innerPropSet, propName, default);
                 InsertValue(innerPropSet, "e", to);
                 animations.Enqueue(an);
+                if (animations.Count > 19)
+                    Debug.WriteLine(animations.Count);
 
                 var batch = Compositor.CreateScopedBatch(CompositionBatchTypes.Animation);
                 batch.Completed += (s, a) =>

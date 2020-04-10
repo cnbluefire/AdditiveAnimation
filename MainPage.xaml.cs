@@ -37,7 +37,7 @@ namespace AdditiveAnimation
             this.InitializeComponent();
             this.Loaded += MainPage_Loaded;
 
-            throttleProvider = new ThrottleProvider<Vector3>().SetInterval(60);
+            throttleProvider = new ThrottleProvider<Vector3>().SetInterval(100);
 
             throttleProvider.Elapsed += ThrottleProvider_Elapsed;
 
@@ -106,7 +106,9 @@ namespace AdditiveAnimation
 
         public TranslationVisual(Compositor compositor, Vector2 size, Vector3 offset, Color color, int durationInMillis)
         {
-            var trans = AdditiveValue.Create(compositor, Vector3.Zero).SetDuration(durationInMillis);
+            var trans = AdditiveValue.Create(compositor, Vector3.Zero)
+                .SetDuration(durationInMillis)
+                .SetThrottleEnabled(false);
             Translation = trans;
 
             var sv = compositor.CreateSpriteVisual();
