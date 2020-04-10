@@ -37,8 +37,8 @@ namespace AdditiveAnimation
             this.InitializeComponent();
             this.Loaded += MainPage_Loaded;
 
-            CoreWindow.GetForCurrentThread().PointerPressed += MainPage_PointerPressed;
-            CoreWindow.GetForCurrentThread().PointerMoved += MainPage_PointerMoved;
+            //CoreWindow.GetForCurrentThread().PointerPressed += MainPage_PointerPressed;
+            //CoreWindow.GetForCurrentThread().PointerMoved += MainPage_PointerMoved;
         }
 
         private Compositor Compositor => Window.Current.Compositor;
@@ -76,6 +76,11 @@ namespace AdditiveAnimation
                 translationVisuals.Add(t);
                 container.Children.InsertAtBottom(t.Visual);
             }
+
+            var prop = ElementCompositionPreview.GetPointerPositionPropertySet(this);
+            exp = Compositor.CreateExpressionAnimation("Vector3(prop.Position.X, prop.Position.Y, 0f)");
+            exp.SetReferenceParameter("prop", prop);
+            translationVisuals[0].Translation.StartExpression(exp);
 
             ElementCompositionPreview.SetElementChildVisual(this, container);
         }
