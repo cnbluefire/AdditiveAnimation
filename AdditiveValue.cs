@@ -28,13 +28,13 @@ namespace AdditiveAnimation
 
         public AdditiveValue(Compositor compositor, T initValue)
         {
-            CheckType();
+            AdditiveValueHelper.CheckType<T>();
 
             Compositor = compositor;
-            properties = Compositor.CreatePropertySet();
+            Properties = Compositor.CreatePropertySet();
             innerPropSet = Compositor.CreatePropertySet();
             lastValue = initValue;
-            InsertValue(properties, "Value", lastValue);
+            AdditiveValueHelper.InsertValue(Properties, "Value", lastValue);
             exp = Compositor.CreateExpressionAnimation();
             exp.SetReferenceParameter("p", innerPropSet);
             easingFunc = Compositor.CreateCubicBezierEasingFunction(new Vector2(0.45f, 0f), new Vector2(0.55f, 1f));
@@ -44,7 +44,6 @@ namespace AdditiveAnimation
 
         #region Fields
 
-        private CompositionPropertySet properties;
         private CompositionPropertySet innerPropSet;
         private ExpressionAnimation exp;
         private CompositionEasingFunction easingFunc;
@@ -101,7 +100,7 @@ namespace AdditiveAnimation
             }
         }
 
-        public CompositionPropertySet Properties => properties;
+        public CompositionPropertySet Properties { get; private set; }
 
         /// <summary>
         /// 使用外部节流器时应设置为false，请确保(动画的Duration / 节流器的Interval) < 19
@@ -131,7 +130,7 @@ namespace AdditiveAnimation
         {
             lock (locker)
             {
-                if (properties == null)
+                if (Properties == null)
                 {
                     throw new ObjectDisposedException(nameof(AdditiveValue<T>));
                 }
@@ -143,7 +142,7 @@ namespace AdditiveAnimation
                     animations.Dequeue().Dispose();
                     var propName = $"p{completedIndex}";
                     innerPropSet.StopAnimation(propName);
-                    InsertValue(innerPropSet, propName, default);
+                    AdditiveValueHelper.InsertValue(innerPropSet, propName, default(T));
                 }
                 lastValue = to;
                 ResetInnerProperties();
@@ -154,7 +153,7 @@ namespace AdditiveAnimation
         {
             lock (locker)
             {
-                if (properties == null)
+                if (Properties == null)
                 {
                     throw new ObjectDisposedException("");
                 }
@@ -176,7 +175,7 @@ namespace AdditiveAnimation
                 }
 
                 var from = lastValue;
-                var an = CreateKeyFrameAnimation(from, to);
+                var an = AdditiveValueHelper.CreateKeyFrameAnimation(Compositor, from, to);
                 if (an == null) throw new ArgumentNullException(nameof(an));
                 an.Duration = Duration;
 
@@ -184,9 +183,9 @@ namespace AdditiveAnimation
 
                 var propName = $"p{index}";
                 index++;
-                properties.StopAnimation("Value");
-                InsertValue(innerPropSet, propName, default);
-                InsertValue(innerPropSet, "e", to);
+                Properties.StopAnimation("Value");
+                AdditiveValueHelper.InsertValue(innerPropSet, propName, default(T));
+                AdditiveValueHelper.InsertValue(innerPropSet, "e", to);
                 animations.Enqueue(an);
 
                 var batch = Compositor.CreateScopedBatch(CompositionBatchTypes.Animation);
@@ -235,8 +234,8 @@ namespace AdditiveAnimation
                 easingFunc = null;
                 innerPropSet.Dispose();
                 innerPropSet = null;
-                properties.Dispose();
-                properties = null;
+                Properties.Dispose();
+                Properties = null;
             }
         }
 
@@ -246,7 +245,7 @@ namespace AdditiveAnimation
 
         private void StartExpressionAnimation()
         {
-            properties.StopAnimation("Value");
+            Properties.StopAnimation("Value");
             sb.Append("p.e");
             for (var i = completedIndex + 1; i < index; i++)
             {
@@ -254,11 +253,11 @@ namespace AdditiveAnimation
             }
             exp.Expression = sb.ToString();
             sb.Clear();
-            if (!CheckValueExist())
+            if (!AdditiveValueHelper.CheckValueExist<T>(Properties, "Value"))
             {
-                InsertValue(properties, "Value", default);
+                AdditiveValueHelper.InsertValue(Properties, "Value", default(T));
             }
-            properties.StartAnimation("Value", exp);
+            Properties.StartAnimation("Value", exp);
         }
 
 
@@ -266,103 +265,16 @@ namespace AdditiveAnimation
         {
             lock (locker)
             {
-                properties.StopAnimation("Value");
+                Properties.StopAnimation("Value");
                 index = 0;
                 completedIndex = -1;
                 innerPropSet.Dispose();
                 innerPropSet = Compositor.CreatePropertySet();
+                Properties.Dispose();
+                Properties = null;
                 exp.SetReferenceParameter("p", innerPropSet);
-                InsertValue(innerPropSet, "e", lastValue);
-                InsertValue(properties, "Value", lastValue);
-            }
-        }
-
-        protected KeyFrameAnimation CreateKeyFrameAnimation(T from, T to)
-        {
-            {
-                if (from is float fromv && to is float tov)
-                {
-                    var an = Compositor.CreateScalarKeyFrameAnimation();
-                    an.InsertKeyFrame(0f, tov - fromv);
-                    an.InsertKeyFrame(1f, default);
-                    return an;
-                }
-            }
-
-            {
-                if (from is Vector2 fromv && to is Vector2 tov)
-                {
-                    var an = Compositor.CreateVector2KeyFrameAnimation();
-                    an.InsertKeyFrame(0f, tov - fromv);
-                    an.InsertKeyFrame(1f, default);
-                    return an;
-                }
-            }
-
-            {
-                if (from is Vector3 fromv && to is Vector3 tov)
-                {
-                    var an = Compositor.CreateVector3KeyFrameAnimation();
-                    an.InsertKeyFrame(0f, tov - fromv);
-                    an.InsertKeyFrame(1f, default);
-                    return an;
-                }
-            }
-
-            {
-                if (from is Vector4 fromv && to is Vector4 tov)
-                {
-                    var an = Compositor.CreateVector4KeyFrameAnimation();
-                    an.InsertKeyFrame(0f, tov - fromv);
-                    an.InsertKeyFrame(1f, default);
-                    return an;
-                }
-            }
-
-            {
-                if (from is Quaternion fromv && to is Quaternion tov)
-                {
-                    var an = Compositor.CreateQuaternionKeyFrameAnimation();
-                    an.InsertKeyFrame(0f, tov - fromv);
-                    an.InsertKeyFrame(1f, default);
-                    return an;
-                }
-            }
-
-            return null;
-        }
-
-        protected void InsertValue(CompositionPropertySet prop, string name, T value)
-        {
-            { if (value is float v) prop.InsertScalar(name, v); }
-            { if (value is Vector2 v) prop.InsertVector2(name, v); }
-            { if (value is Vector3 v) prop.InsertVector3(name, v); }
-            { if (value is Vector4 v) prop.InsertVector4(name, v); }
-            { if (value is Quaternion v) prop.InsertQuaternion(name, v); }
-        }
-
-        protected bool CheckValueExist()
-        {
-            var status = CompositionGetValueStatus.NotFound;
-
-            if (typeof(T) == typeof(float)) status = properties.TryGetScalar("Value", out _);
-            if (typeof(T) == typeof(Vector2)) status = properties.TryGetVector2("Value", out _);
-            if (typeof(T) == typeof(Vector3)) status = properties.TryGetVector3("Value", out _);
-            if (typeof(T) == typeof(Vector4)) status = properties.TryGetVector4("Value", out _);
-            if (typeof(T) == typeof(Quaternion)) status = properties.TryGetQuaternion("Value", out _);
-
-            return status == CompositionGetValueStatus.Succeeded;
-        }
-
-        protected void CheckType()
-        {
-            if (typeof(T) != typeof(float) &&
-                typeof(T) != typeof(Vector2) &&
-                typeof(T) != typeof(Vector3) &&
-                typeof(T) != typeof(Vector4) &&
-                typeof(T) != typeof(Quaternion))
-            {
-                throw new ArgumentException($"不支持的类型: {typeof(T).Name}");
+                AdditiveValueHelper.InsertValue(innerPropSet, "e", lastValue);
+                AdditiveValueHelper.InsertValue(Properties, "Value", lastValue);
             }
         }
 

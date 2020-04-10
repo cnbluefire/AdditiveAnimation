@@ -42,8 +42,7 @@ namespace AdditiveAnimation
         }
 
         private Compositor Compositor => Window.Current.Compositor;
-        private List<TranslationVisual> translationVisuals = new List<TranslationVisual>();
-        private ThrottleProvider<Vector3> throttleProvider;
+        private List<TranslationFastVisual> translationVisuals = new List<TranslationFastVisual>();
 
         private void MainPage_Loaded(object sender, RoutedEventArgs e)
         {
@@ -54,15 +53,26 @@ namespace AdditiveAnimation
                 .OfType<Color>()
                 .ToList();
 
+            ExpressionAnimation exp = null;
+
             for (int i = 1; i < 20; i++)
             {
                 var c = colors[i % colors.Count];
-                var t = new TranslationVisual(
+                var t = new TranslationFastVisual(
                     compositor: Compositor,
                     size: new Vector2(50, 50),
                     offset: Vector3.Zero,
                     color: c,
-                    durationInMillis: 400 + 80 * i);
+                    dampingRatio: 0.3f);
+
+                if (exp != null)
+                {
+                    t.Translation.StartExpression(exp);
+                }
+
+                exp = Compositor.CreateExpressionAnimation("prop.Value");
+                exp.SetReferenceParameter("prop", t.Translation.Properties);
+
                 translationVisuals.Add(t);
                 container.Children.InsertAtBottom(t.Visual);
             }
@@ -76,7 +86,8 @@ namespace AdditiveAnimation
             var position = args.CurrentPoint.Position;
             var to = new Vector3((float)(position.X - 25), (float)(position.Y - 25), 0f);
 
-            translationVisuals.ForEach(c => c.Translation.Stop(to));
+            //translationVisuals.ForEach(c => c.Translation.Stop(to));
+            translationVisuals[0].Translation.Stop(to);
         }
 
 
@@ -84,7 +95,8 @@ namespace AdditiveAnimation
         {
             var position = args.CurrentPoint.Position;
             var to = new Vector3((float)(position.X - 25), (float)(position.Y - 25), 0f);
-            translationVisuals.ForEach(c => c.Translation.Animate(to));
+            //translationVisuals.ForEach(c => c.Translation.Animate(to));
+            translationVisuals[0].Translation.Animate(to);
         }
     }
 
@@ -97,6 +109,30 @@ namespace AdditiveAnimation
         {
             var trans = AdditiveValue.Create(compositor, Vector3.Zero)
                 .SetDuration(durationInMillis);
+            Translation = trans;
+
+            var sv = compositor.CreateSpriteVisual();
+            sv.Size = size;
+            sv.Brush = compositor.CreateColorBrush(color);
+
+            var exp = compositor.CreateExpressionAnimation("offset + trans.Value");
+            exp.SetVector3Parameter("offset", offset);
+            exp.SetReferenceParameter("trans", trans.Properties);
+
+            sv.StartAnimation("Offset", exp);
+            Visual = sv;
+        }
+    }
+
+    public class TranslationFastVisual
+    {
+        public Visual Visual { get; private set; }
+        public AdditiveValueFast<Vector3> Translation { get; private set; }
+
+        public TranslationFastVisual(Compositor compositor, Vector2 size, Vector3 offset, Color color, float dampingRatio)
+        {
+            var trans = AdditiveValueFast.Create(compositor, Vector3.Zero)
+                .SetDampingRatio(dampingRatio);
             Translation = trans;
 
             var sv = compositor.CreateSpriteVisual();

@@ -117,6 +117,8 @@
   </PropertyGroup>
   <ItemGroup>
     <Compile Include="AdditiveValue.cs" />
+    <Compile Include="AdditiveValueFast.cs" />
+    <Compile Include="AdditiveValueHelper.cs" />
     <Compile Include="App.xaml.cs">
       <DependentUpon>App.xaml</DependentUpon>
     </Compile>
