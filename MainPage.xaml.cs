@@ -37,10 +37,6 @@ namespace AdditiveAnimation
             this.InitializeComponent();
             this.Loaded += MainPage_Loaded;
 
-            throttleProvider = new ThrottleProvider<Vector3>().SetInterval(100);
-
-            throttleProvider.Elapsed += ThrottleProvider_Elapsed;
-
             CoreWindow.GetForCurrentThread().PointerPressed += MainPage_PointerPressed;
             CoreWindow.GetForCurrentThread().PointerMoved += MainPage_PointerMoved;
         }
@@ -66,7 +62,7 @@ namespace AdditiveAnimation
                     size: new Vector2(50, 50),
                     offset: Vector3.Zero,
                     color: c,
-                    durationInMillis: 200 + 80 * i);
+                    durationInMillis: 400 + 80 * i);
                 translationVisuals.Add(t);
                 container.Children.InsertAtBottom(t.Visual);
             }
@@ -88,14 +84,7 @@ namespace AdditiveAnimation
         {
             var position = args.CurrentPoint.Position;
             var to = new Vector3((float)(position.X - 25), (float)(position.Y - 25), 0f);
-
-            throttleProvider.SetValue(to);
-        }
-
-
-        private void ThrottleProvider_Elapsed(object sender, ThrottleProviderElapsedEventArgs<Vector3> e)
-        {
-            translationVisuals.ForEach(c => c.Translation.Animate(e.Value));
+            translationVisuals.ForEach(c => c.Translation.Animate(to));
         }
     }
 
@@ -107,8 +96,7 @@ namespace AdditiveAnimation
         public TranslationVisual(Compositor compositor, Vector2 size, Vector3 offset, Color color, int durationInMillis)
         {
             var trans = AdditiveValue.Create(compositor, Vector3.Zero)
-                .SetDuration(durationInMillis)
-                .SetThrottleEnabled(false);
+                .SetDuration(durationInMillis);
             Translation = trans;
 
             var sv = compositor.CreateSpriteVisual();

@@ -51,6 +51,7 @@ namespace AdditiveAnimation
         private long completedIndex = -1;
         private long index = 0;
         private T lastValue;
+        private T? nextValue;
         private TimeSpan? duration;
         private long unitTicks = -1;
         private long lastAnimateTick;
@@ -162,6 +163,7 @@ namespace AdditiveAnimation
 
                 if (IsThrottleEnabled)
                 {
+                    nextValue = to;
                     var now = Stopwatch.GetTimestamp();
                     if (now - lastAnimateTick > (unitTicks == -1 ? DefaultTicks : unitTicks))
                     {
@@ -186,8 +188,6 @@ namespace AdditiveAnimation
                 InsertValue(innerPropSet, propName, default);
                 InsertValue(innerPropSet, "e", to);
                 animations.Enqueue(an);
-                if (animations.Count > 19)
-                    Debug.WriteLine(animations.Count);
 
                 var batch = Compositor.CreateScopedBatch(CompositionBatchTypes.Animation);
                 batch.Completed += (s, a) =>
@@ -199,13 +199,20 @@ namespace AdditiveAnimation
                             animations.Dequeue().Dispose();
                             completedIndex++;
                             var completedPropName = $"p{completedIndex}";
-                            if (index > 200 && index == completedIndex + 1)
+                            if (nextValue.HasValue && !EqualityComparer<T>.Default.Equals(nextValue.Value, lastValue))
                             {
-                                ResetInnerProperties();
+                                Animate(nextValue.Value);
                             }
                             else
                             {
-                                StartExpressionAnimation();
+                                if (index > 200 && index == completedIndex + 1)
+                                {
+                                    ResetInnerProperties();
+                                }
+                                else
+                                {
+                                    StartExpressionAnimation();
+                                }
                             }
                         }
                     }
