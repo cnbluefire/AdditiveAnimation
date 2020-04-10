@@ -36,9 +36,6 @@ namespace AdditiveAnimation
         {
             this.InitializeComponent();
             this.Loaded += MainPage_Loaded;
-
-            //CoreWindow.GetForCurrentThread().PointerPressed += MainPage_PointerPressed;
-            //CoreWindow.GetForCurrentThread().PointerMoved += MainPage_PointerMoved;
         }
 
         private Compositor Compositor => Window.Current.Compositor;
@@ -65,11 +62,14 @@ namespace AdditiveAnimation
                     color: c,
                     dampingRatio: 0.3f);
 
-                if (exp != null)
+                if (exp == null)
                 {
-                    t.Translation.StartExpression(exp);
+                    var prop = ElementCompositionPreview.GetPointerPositionPropertySet(this);
+                    exp = Compositor.CreateExpressionAnimation("Vector3(prop.Position.X, prop.Position.Y, 0f)");
+                    exp.SetReferenceParameter("prop", prop);
                 }
 
+                t.Translation.StartExpression(exp);
                 exp = Compositor.CreateExpressionAnimation("prop.Value");
                 exp.SetReferenceParameter("prop", t.Translation.Properties);
 
@@ -77,32 +77,9 @@ namespace AdditiveAnimation
                 container.Children.InsertAtBottom(t.Visual);
             }
 
-            var prop = ElementCompositionPreview.GetPointerPositionPropertySet(this);
-            exp = Compositor.CreateExpressionAnimation("Vector3(prop.Position.X, prop.Position.Y, 0f)");
-            exp.SetReferenceParameter("prop", prop);
-            translationVisuals[0].Translation.StartExpression(exp);
-
             ElementCompositionPreview.SetElementChildVisual(this, container);
         }
 
-
-        private void MainPage_PointerPressed(CoreWindow sender, PointerEventArgs args)
-        {
-            var position = args.CurrentPoint.Position;
-            var to = new Vector3((float)(position.X - 25), (float)(position.Y - 25), 0f);
-
-            //translationVisuals.ForEach(c => c.Translation.Stop(to));
-            translationVisuals[0].Translation.Stop(to);
-        }
-
-
-        private void MainPage_PointerMoved(CoreWindow sender, PointerEventArgs args)
-        {
-            var position = args.CurrentPoint.Position;
-            var to = new Vector3((float)(position.X - 25), (float)(position.Y - 25), 0f);
-            //translationVisuals.ForEach(c => c.Translation.Animate(to));
-            translationVisuals[0].Translation.Animate(to);
-        }
     }
 
     public class TranslationVisual

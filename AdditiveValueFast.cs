@@ -10,7 +10,13 @@ namespace AdditiveAnimation
 {
     public sealed class AdditiveValueFast<T> : IDisposable where T : struct
     {
+        #region Default Values
+        
         private static TimeSpan defaultDuration = TimeSpan.FromMilliseconds(1000 / 60);
+
+        #endregion Default Values
+
+        #region Ctor
 
         public AdditiveValueFast(Compositor compositor) : this(compositor, default) { }
 
@@ -27,6 +33,10 @@ namespace AdditiveAnimation
             resetTimer.Elapsed += ResetTimer_Elapsed;
         }
 
+        #endregion Ctor
+
+        #region Fields
+        
         private CompositionPropertySet innerPropSet;
         private KeyFrameAnimation animation;
         private CompositionEasingFunction easingFunc;
@@ -36,7 +46,10 @@ namespace AdditiveAnimation
         private bool stoped = true;
         private bool hasEndExpression = false;
 
+        #endregion Fields
 
+        #region Properties
+        
         public Compositor Compositor { get; }
 
         public CompositionPropertySet Properties { get; private set; }
@@ -54,6 +67,10 @@ namespace AdditiveAnimation
                 innerPropSet.InsertScalar("dampingRatio", dampingRatio);
             }
         }
+
+        #endregion Properties
+
+        #region Methods
 
         public AdditiveValueFast<T> SetDampingRatio(double value)
         {
@@ -131,6 +148,27 @@ namespace AdditiveAnimation
             }
         }
 
+
+        public void Dispose()
+        {
+            lock (locker)
+            {
+                resetTimer.Stop();
+                resetTimer.Dispose();
+                resetTimer = null;
+                easingFunc.Dispose();
+                easingFunc = null;
+                innerPropSet.Dispose();
+                innerPropSet = null;
+                Properties.Dispose();
+                Properties = null;
+            }
+        }
+
+        #endregion Methods
+
+        #region Utilities
+
         private void ResetAnimation()
         {
             lock (locker)
@@ -164,16 +202,9 @@ namespace AdditiveAnimation
             ResetAnimation();
         }
 
-        public void Dispose()
-        {
-            lock (locker)
-            {
-                resetTimer.Stop();
-                resetTimer.Dispose();
-                resetTimer = null;
 
-            }
-        }
+        #endregion Utilities
+
     }
 
     public class AdditiveValueFast
