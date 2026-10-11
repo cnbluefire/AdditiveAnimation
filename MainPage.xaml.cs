@@ -1,27 +1,10 @@
 ﻿using System;
-using System.Collections.Generic;
-using System.Diagnostics;
-using System.IO;
-using System.Linq;
-using System.Linq.Expressions;
 using System.Numerics;
-using System.Reflection;
-using System.Runtime.InteropServices.WindowsRuntime;
-using System.Text;
-using System.Timers;
-using Windows.Foundation;
-using Windows.Foundation.Collections;
 using Windows.UI;
 using Windows.UI.Composition;
-using Windows.UI.Core;
 using Windows.UI.Xaml;
 using Windows.UI.Xaml.Controls;
-using Windows.UI.Xaml.Controls.Primitives;
-using Windows.UI.Xaml.Data;
 using Windows.UI.Xaml.Hosting;
-using Windows.UI.Xaml.Input;
-using Windows.UI.Xaml.Media;
-using Windows.UI.Xaml.Navigation;
 
 // https://go.microsoft.com/fwlink/?LinkId=402352&clcid=0x804 上介绍了“空白页”项模板
 
@@ -39,94 +22,58 @@ namespace AdditiveAnimation
         }
 
         private Compositor Compositor => Window.Current.Compositor;
-        private List<TranslationFastVisual> translationVisuals = new List<TranslationFastVisual>();
 
         private void MainPage_Loaded(object sender, RoutedEventArgs e)
         {
             var container = Compositor.CreateContainerVisual();
 
-            var colors = typeof(Colors).GetProperties(BindingFlags.Public | BindingFlags.Static | BindingFlags.GetProperty)
-                .Select(c => c.GetValue(null))
-                .OfType<Color>()
-                .ToList();
-
-            ExpressionAnimation exp = null;
-
-            for (int i = 1; i < 20; i++)
-            {
-                var c = colors[i % colors.Count];
-                var t = new TranslationFastVisual(
-                    compositor: Compositor,
-                    size: new Vector2(50, 50),
-                    offset: Vector3.Zero,
-                    color: c,
-                    dampingRatio: 0.3f);
-
-                if (exp == null)
-                {
-                    var prop = ElementCompositionPreview.GetPointerPositionPropertySet(this);
-                    exp = Compositor.CreateExpressionAnimation("Vector3(prop.Position.X, prop.Position.Y, 0f)");
-                    exp.SetReferenceParameter("prop", prop);
-                }
-
-                t.Translation.StartExpression(exp);
-                exp = Compositor.CreateExpressionAnimation("prop.Value");
-                exp.SetReferenceParameter("prop", t.Translation.Properties);
-
-                translationVisuals.Add(t);
-                container.Children.InsertAtBottom(t.Visual);
-            }
-
             ElementCompositionPreview.SetElementChildVisual(this, container);
-        }
 
-    }
+            var visual = Compositor.CreateSpriteVisual();
+            visual.Brush = Compositor.CreateColorBrush(Colors.Green);
+            visual.Size = new Vector2(100, 100);
+            container.Children.InsertAtTop(visual);
 
-    public class TranslationVisual
-    {
-        public Visual Visual { get; private set; }
-        public AdditiveValue<Vector3> Translation { get; private set; }
+            var timer = new DispatcherTimer()
+            {
+                Interval = TimeSpan.FromMilliseconds(10),
+            };
+            Vector3 position = default;
+            Vector3 lastOffset = visual.Offset;
+            long lastAnimationTimestamp = 0;
 
-        public TranslationVisual(Compositor compositor, Vector2 size, Vector3 offset, Color color, int durationInMillis)
-        {
-            var trans = AdditiveValue.Create(compositor, Vector3.Zero)
-                .SetDuration(durationInMillis);
-            Translation = trans;
+            this.PointerMoved += (s, a) =>
+            {
+                position = new Vector3(a.GetCurrentPoint(this).Position.ToVector2(), 0);
+            };
 
-            var sv = compositor.CreateSpriteVisual();
-            sv.Size = size;
-            sv.Brush = compositor.CreateColorBrush(color);
+            timer.Tick += (s, a) =>
+            {
+                var offset = position - new Vector3(visual.Size / 2, 0);
 
-            var exp = compositor.CreateExpressionAnimation("offset + trans.Value");
-            exp.SetVector3Parameter("offset", offset);
-            exp.SetReferenceParameter("trans", trans.Properties);
+                if (lastOffset != offset)
+                {
+                    visual.StopAnimation("Offset");
 
-            sv.StartAnimation("Offset", exp);
-            Visual = sv;
-        }
-    }
+                    var animationTimestamp = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
 
-    public class TranslationFastVisual
-    {
-        public Visual Visual { get; private set; }
-        public AdditiveValueFast<Vector3> Translation { get; private set; }
+                    var springAnimation = Compositor.CreateSpringVector3Animation();
+                    springAnimation.InitialValueExpressions["FinalValue"] = "offset";
+                    springAnimation.InitialValueExpressions["InitialVelocity"] = "(lastOffset - this.StartingValue) / Vector3(duration,duration,duration)";
 
-        public TranslationFastVisual(Compositor compositor, Vector2 size, Vector3 offset, Color color, float dampingRatio)
-        {
-            var trans = AdditiveValueFast.Create(compositor, Vector3.Zero)
-                .SetDampingRatio(dampingRatio);
-            Translation = trans;
+                    springAnimation.SetVector3Parameter("offset", offset);
+                    springAnimation.SetVector3Parameter("lastOffset", lastOffset);
+                    springAnimation.SetScalarParameter("duration", (animationTimestamp - lastAnimationTimestamp) / 1000f);
 
-            var sv = compositor.CreateSpriteVisual();
-            sv.Size = size;
-            sv.Brush = compositor.CreateColorBrush(color);
+                    springAnimation.StopBehavior = AnimationStopBehavior.LeaveCurrentValue;
 
-            var exp = compositor.CreateExpressionAnimation("offset + trans.Value");
-            exp.SetVector3Parameter("offset", offset);
-            exp.SetReferenceParameter("trans", trans.Properties);
+                    visual.StartAnimation("Offset", springAnimation);
+                    lastOffset = offset;
+                    lastAnimationTimestamp = animationTimestamp;
+                }
+            };
+            timer.Start();
 
-            sv.StartAnimation("Offset", exp);
-            Visual = sv;
         }
     }
 }
